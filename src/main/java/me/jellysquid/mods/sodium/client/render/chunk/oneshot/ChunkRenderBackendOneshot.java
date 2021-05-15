@@ -1,6 +1,7 @@
 package me.jellysquid.mods.sodium.client.render.chunk.oneshot;
 
 import me.jellysquid.mods.sodium.client.gl.shader.GlShader;
+import me.jellysquid.mods.sodium.client.gl.shader.ShaderConstants;
 import me.jellysquid.mods.sodium.client.gl.shader.ShaderLoader;
 import me.jellysquid.mods.sodium.client.gl.shader.ShaderType;
 import me.jellysquid.mods.sodium.client.gl.util.BufferSlice;
@@ -18,15 +19,22 @@ import me.jellysquid.mods.sodium.client.render.chunk.passes.BlockRenderPass;
 import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkFogMode;
 import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkRenderShaderBackend;
 import net.minecraft.util.Identifier;
+
+import net.coderbot.iris.gl.program.ProgramUniforms;
+import net.coderbot.iris.pipeline.SodiumTerrainPipeline;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 public abstract class ChunkRenderBackendOneshot<T extends ChunkOneshotGraphicsState> extends ChunkRenderShaderBackend<T, ChunkProgramOneshot> {
     private final GlMultiDrawBatch batch = new GlMultiDrawBatch(ModelQuadFacing.COUNT);
+    @Nullable
+    private final SodiumTerrainPipeline pipeline = SodiumTerrainPipeline.create().orElse(null);
 
     private final MemoryTracker memoryTracker = new MemoryTracker();
 
@@ -35,17 +43,39 @@ public abstract class ChunkRenderBackendOneshot<T extends ChunkOneshotGraphicsSt
     }
 
     @Override
-    protected ChunkProgramOneshot createShaderProgram(Identifier name, int handle, ChunkFogMode fogMode) {
-        return new ChunkProgramOneshot(name, handle, fogMode.getFactory());
+    protected ChunkProgramOneshot createShaderProgram(Identifier name, int handle, ChunkFogMode fogMode, BlockRenderPass pass) {
+        ProgramUniforms uniforms = null;
+
+        if (pipeline != null) {
+            uniforms = pipeline.initUniforms(handle);
+        }
+
+        return new ChunkProgramOneshot(name, handle, fogMode.getFactory(), uniforms);
     }
 
     @Override
-    protected GlShader createVertexShader(ChunkFogMode fogMode) {
+    protected GlShader createVertexShader(ChunkFogMode fogMode, BlockRenderPass pass) {
+        if (pipeline != null) {
+            Optional<String> irisVertexShader = pass.isTranslucent() ? pipeline.getTranslucentVertexShaderSource() : pipeline.getTerrainVertexShaderSource();
+
+            if (irisVertexShader.isPresent()) {
+                return new GlShader(ShaderType.VERTEX, new Identifier("iris", "sodium-terrain.vsh"), irisVertexShader.get(), ShaderConstants.builder().build());
+            }
+        }
+
         return ShaderLoader.loadShader(ShaderType.VERTEX, new Identifier("sodium", "chunk_gl20.v.glsl"), fogMode.getDefines());
     }
 
     @Override
-    protected GlShader createFragmentShader(ChunkFogMode fogMode) {
+    protected GlShader createFragmentShader(ChunkFogMode fogMode, BlockRenderPass pass) {
+        if (pipeline != null) {
+            Optional<String> irisFragmentShader = pass.isTranslucent() ? pipeline.getTranslucentFragmentShaderSource() : pipeline.getTerrainFragmentShaderSource();
+
+            if (irisFragmentShader.isPresent()) {
+                return new GlShader(ShaderType.FRAGMENT, new Identifier("iris", "sodium-terrain.fsh"), irisFragmentShader.get(), ShaderConstants.builder().build());
+            }
+        }
+
         return ShaderLoader.loadShader(ShaderType.FRAGMENT, new Identifier("sodium", "chunk_gl20.f.glsl"), fogMode.getDefines());
     }
 

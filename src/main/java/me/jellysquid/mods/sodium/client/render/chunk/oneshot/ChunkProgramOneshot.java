@@ -2,7 +2,11 @@ package me.jellysquid.mods.sodium.client.render.chunk.oneshot;
 
 import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkProgram;
 import me.jellysquid.mods.sodium.client.render.chunk.shader.ChunkShaderFogComponent;
+
 import net.minecraft.util.Identifier;
+
+import net.coderbot.iris.gl.program.ProgramUniforms;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.system.MemoryUtil;
 
@@ -16,8 +20,8 @@ public class ChunkProgramOneshot extends ChunkProgram {
     // Scratch buffer
     private final FloatBuffer uModelOffsetBuffer;
 
-    public ChunkProgramOneshot(Identifier name, int handle, Function<ChunkProgram, ChunkShaderFogComponent> fogShaderFunction) {
-        super(name, handle, fogShaderFunction);
+    public ChunkProgramOneshot(Identifier name, int handle, Function<ChunkProgram, ChunkShaderFogComponent> fogShaderFunction, @Nullable ProgramUniforms irisProgramUniforms) {
+        super(name, handle, fogShaderFunction, irisProgramUniforms);
 
         this.dModelOffset = this.getUniformLocation("d_ModelOffset");
         this.uModelOffsetBuffer = MemoryUtil.memAllocFloat(4);
